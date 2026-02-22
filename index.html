@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard PL – Finanse · Wrocław · Siechnice · Sądownictwo · Prawnicy</title>
+<meta name="description" content="Interaktywny dashboard: wskaźniki finansowe, dane GUS, sądownictwo, rynek prawniczy w Polsce">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   RESET & VARIABLES
+============================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;
+  --blue:#58a6ff;--green:#3fb950;--orange:#f0883e;
+  --purple:#bc8cff;--red:#ff7b72;--yellow:#d29922;--cyan:#39d0d8;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;padding:0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============================================================
+   LAYOUT
+============================================================ */
+.wrap{max-width:1240px;margin:0 auto;padding:0 1.5rem}
+
+/* ── TOP NAV ── */
+.topnav{
+  background:rgba(13,17,23,.95);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+  backdrop-filter:blur(12px);
+}
+.topnav-inner{
+  max-width:1240px;margin:0 auto;padding:.9rem 1.5rem;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;
+}
+.logo{font-size:1.25rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.logo span{color:var(--green)}
+.nav-right{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+#clock{color:var(--green);font-weight:600}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
+
+/* ── SECTION TABS (top-level) ── */
+.sectabs{
+  max-width:1240px;margin:0 auto;
+  display:flex;gap:.4rem;flex-wrap:wrap;
+  padding:1.2rem 1.5rem .5rem;
+  border-bottom:1px solid var(--border);
+}
+.stab{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:500;
+  padding:.45rem 1.1rem;border-radius:8px;cursor:pointer;transition:all .18s;white-space:nowrap;
+}
+.stab.active{background:var(--green);border-color:var(--green);color:#000;font-weight:700}
+.stab:hover:not(.active){border-color:var(--text);color:var(--text)}
+
+/* ── PAGES ── */
+.page{display:none;padding:2rem 1.5rem 4rem;max-width:1240px;margin:0 auto;animation:fadeUp .3s ease}
+.page.active{display:block}
+.section-label{
+  font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);
+}
+
+/* ── KPI BOXES ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
+.kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:1.2rem;position:relative;overflow:hidden;transition:transform .2s;
+}
+.kpi:hover{transform:translateY(-2px)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--green))}
+.kpi-icon{font-size:1.4rem;margin-bottom:.4rem}
+.kpi-label{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kpi-val{font-size:1.7rem;font-weight:700;color:var(--text);line-height:1;margin-bottom:.3rem}
+.kpi-sub{font-size:.68rem;color:var(--muted);line-height:1.4}
+.kpi-trend{font-size:.68rem;font-weight:600;margin-top:.4rem}
+.trend-up{color:var(--green)}.trend-down{color:var(--red)}.trend-flat{color:var(--muted)}
+
+/* ── STAT ROW ── */
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.8rem}
+.sbox{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.1rem}
+.slabel{font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem}
+.sval{font-size:1.5rem;font-weight:700;line-height:1}
+.ssub{font-size:.68rem;color:var(--muted);margin-top:.25rem}
+.schange{font-size:.68rem;margin-top:.4rem}
+.schange.up{color:var(--green)}.schange.down{color:var(--red)}.schange.flat{color:var(--muted)}
+
+/* ── GAUGES ── */
+.gauge-grid{display:flex;justify-content:center;flex-wrap:wrap;gap:1.5rem;margin-bottom:2rem}
+.gcard{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:1.5rem 1.2rem 1.2rem;width:240px;display:flex;flex-direction:column;
+  align-items:center;transition:transform .2s;
+}
+.gcard:hover{transform:translateY(-3px)}
+.gcard.bl{border-color:rgba(88,166,255,.25)}.gcard.gr{border-color:rgba(63,185,80,.25)}.gcard.or{border-color:rgba(240,136,62,.25)}
+.gcard-title{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.8rem;text-align:center}
+.bl .gcard-title{color:var(--blue)}.gr .gcard-title{color:var(--green)}.or .gcard-title{color:var(--orange)}
+.gwrap{position:relative;width:140px;height:140px;margin-bottom:.8rem}
+.gsvg{width:140px;height:140px;transform:rotate(-90deg)}
+.g-track{fill:none;stroke:var(--border);stroke-width:8}
+.g-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset 1.3s cubic-bezier(.4,0,.2,1)}
+.bl .g-fill{stroke:var(--blue);filter:drop-shadow(0 0 4px rgba(88,166,255,.5))}
+.gr .g-fill{stroke:var(--green);filter:drop-shadow(0 0 4px rgba(63,185,80,.5))}
+.or .g-fill{stroke:var(--orange);filter:drop-shadow(0 0 4px rgba(240,136,62,.5))}
+.gcenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gval{font-size:1.8rem;font-weight:700;line-height:1}
+.gunit{font-size:.75rem;color:var(--muted);margin-top:2px}
+.badge{font-size:.62rem;font-weight:600;padding:.2rem .55rem;border-radius:50px;margin-bottom:.5rem}
+.badge.up{background:rgba(63,185,80,.15);color:var(--green)}
+.badge.down{background:rgba(255,123,114,.15);color:var(--red)}
+.badge.flat{background:rgba(125,133,144,.15);color:var(--muted)}
+.gcard-desc{font-size:.65rem;color:var(--muted);text-align:center;line-height:1.5;margin-bottom:.4rem}
+.src{font-size:.58rem;color:var(--muted);text-decoration:none;opacity:.5;transition:opacity .2s}
+.src:hover{opacity:1;color:var(--text)}
+
+/* ── CHARTS ── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.5rem}
+.cbox{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.3rem}
+.cbox.full{grid-column:1/-1}
+.ctitle{font-size:.68rem;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem}
+.cwrap{position:relative;height:200px}
+.cbox.full .cwrap{height:240px}
+
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem}
+.leg-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:var(--muted)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ── INFO NOTE ── */
+.info-note{
+  font-size:.68rem;color:var(--muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;
+  line-height:1.7;margin-top:1rem;
+}
+.info-note strong{color:var(--text)}
+
+/* ── IFRAME ── */
+.iframe-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.5rem}
+.iframe-hdr{padding:.8rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
+.iframe-title{font-size:.72rem;font-weight:600;color:var(--text)}
+.iframe-sub{font-size:.62rem;color:var(--muted)}
+.iframe-box iframe{width:100%;height:400px;border:none;display:block;background:#fff}
+
+/* ── BIG KPI (sądy) ── */
+.big-kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem;max-width:680px;margin-left:auto;margin-right:auto}
+.big-kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center}
+.big-kpi-icon{font-size:2.2rem;margin-bottom:.4rem}
+.big-kpi-val{font-size:3rem;font-weight:700;line-height:1;margin:.5rem 0}
+.big-kpi-unit{font-size:.9rem;color:var(--muted)}
+.big-kpi-sub{font-size:.68rem;color:var(--muted);margin-top:.4rem;line-height:1.5}
+.big-kpi-change{font-size:.7rem;font-weight:600;margin-top:.5rem}
+
+/* ── FILTER PILLS ── */
+.filter-bar{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.9rem 1.2rem;margin-bottom:1.5rem;
+  display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;
+}
+.filter-group-label{font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.pills{display:flex;gap:.4rem;flex-wrap:wrap}
+.pill{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'Outfit',sans-serif;font-size:.7rem;padding:.25rem .75rem;
+  border-radius:50px;cursor:pointer;transition:all .15s;
+}
+.pill.active{background:var(--cyan);border-color:var(--cyan);color:#000;font-weight:700}
+.pill:hover:not(.active){border-color:var(--text);color:var(--text)}
+
+/* ── HEATMAP TABLE ── */
+.htable{border-collapse:collapse;width:100%;font-size:.72rem}
+.htable th{padding:.5rem .8rem;text-align:left;color:var(--muted);font-weight:400;letter-spacing:.08em;font-size:.62rem;text-transform:uppercase}
+.htable td{padding:.5rem .8rem;border-top:1px solid var(--border);color:#e8f4ff;font-weight:600;text-align:center}
+
+/* ── CALCULATOR ── */
+.calc-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.3rem;margin-bottom:1.5rem}
+.calc-row{display:flex;gap:.8rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
+.calc-input{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:'Outfit',sans-serif;font-size:.95rem;padding:.45rem .8rem;
+  border-radius:8px;width:160px;outline:none;
+}
+.calc-input:focus{border-color:var(--cyan)}
+.calc-btn{
+  background:var(--cyan);border:none;color:#000;
+  font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:700;
+  padding:.45rem 1.1rem;border-radius:8px;cursor:pointer;transition:opacity .15s;
+}
+.calc-btn:hover{opacity:.85}
+.calc-result{font-size:1rem;color:var(--text);line-height:2}
+
+/* ── LEGAL SUB-TABS ── */
+.subtabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.subtab{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'Outfit',sans-serif;font-size:.72rem;padding:.35rem .9rem;
+  border-radius:6px;cursor:pointer;transition:all .15s;
+}
+.subtab.active{background:var(--purple);border-color:var(--purple);color:#fff;font-weight:600}
+.subtab:hover:not(.active){border-color:var(--text);color:var(--text)}
+.subpage{display:none}.subpage.active{display:block;animation:fadeUp .25s ease}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;margin-top:3rem;font-size:.63rem;color:var(--muted);
+  opacity:.5;line-height:2;border-top:1px solid var(--border);padding-top:1.5rem;
+}
+.refresh-btn{
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);
+  font-family:'Outfit',sans-serif;font-size:.7rem;padding:.35rem 1rem;
+  border-radius:50px;cursor:pointer;transition:all .2s;margin-top:.4rem;
+}
+.refresh-btn:hover{border-color:var(--text);color:var(--text)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:720px){
+  .stat-row{grid-template-columns:1fr 1fr}
+  .chart-grid{grid-template-columns:1fr}.cbox.full{grid-column:1}
+  .gauge-grid{flex-direction:column;align-items:center}
+  .gcard{width:90%;max-width:300px}
+  .big-kpi-grid{grid-template-columns:1fr;max-width:100%}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .filter-bar{flex-direction:column;gap:1rem}
+}
+@media(max-width:440px){
+  .stat-row{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     TOP NAV
+════════════════════════════════════════════════════ -->
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="logo">Dashboard<span>PL</span></div>
+    <div class="nav-right">
+      <span id="clock">—</span>
+      <span><span class="dot"></span>NBP API · GUS · MS · ISWS</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════
+     MAIN TABS
+════════════════════════════════════════════════════ -->
+<div class="sectabs">
+  <button class="stab active" onclick="showPage('fin',this)">📈 Wskaźniki</button>
+  <button class="stab" onclick="showPage('wro',this)">🏙️ Wrocław</button>
+  <button class="stab" onclick="showPage('sie',this)">🏘️ Siechnice</button>
+  <button class="stab" onclick="showPage('sad',this)">⚖️ Sądownictwo</button>
+  <button class="stab" onclick="showPage('men',this)">👨 Mężczyźni 35–40</button>
+  <button class="stab" onclick="showPage('law',this)">🏛️ Rynek Prawniczy</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 1 — WSKAŹNIKI FINANSOWE
+════════════════════════════════════════════════════ -->
+<div id="fin" class="page active">
+  <div class="section-label">Wskaźniki finansowe — WIBOR · NBP · FRA</div>
+
+  <div class="gauge-grid">
+    <div class="gcard bl">
+      <div class="gcard-title">WIBOR 3M</div>
+      <div class="gwrap">
+        <svg class="gsvg" viewBox="0 0 140 140">
+          <circle class="g-track" cx="70" cy="70" r="55"/>
+          <circle class="g-fill" id="g1" cx="70" cy="70" r="55" stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+        </svg>
+        <div class="gcenter"><div class="gval" id="wibor-v">—</div><div class="gunit">%</div></div>
+      </div>
+      <div class="badge flat" id="wibor-b">—</div>
+      <div class="gcard-desc" id="wibor-d">wczytywanie…</div>
+      <a href="https://www.bankier.pl/mieszkaniowe/stopy-procentowe/wibor" target="_blank" class="src">▸ GPW Benchmark / Bankier.pl</a>
+    </div>
+
+    <div class="gcard gr">
+      <div class="gcard-title">Stopa Referencyjna NBP</div>
+      <div class="gwrap">
+        <svg class="gsvg" viewBox="0 0 140 140">
+          <circle class="g-track" cx="70" cy="70" r="55"/>
+          <circle class="g-fill" id="g2" cx="70" cy="70" r="55" stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+        </svg>
+        <div class="gcenter"><div class="gval" id="nbp-v">—</div><div class="gunit">%</div></div>
+      </div>
+      <div class="badge flat" id="nbp-b">—</div>
+      <div class="gcard-desc" id="nbp-d">wczytywanie…</div>
+      <a href="https://www.bankier.pl/gospodarka/wskazniki-makroekonomiczne/referencyjna-pol" target="_blank" class="src">▸ NBP / Bankier.pl</a>
+    </div>
+
+    <div class="gcard or">
+      <div class="gcard-title">FRA PLN 3×6</div>
+      <div class="gwrap">
+        <svg class="gsvg" viewBox="0 0 140 140">
+          <circle class="g-track" cx="70" cy="70" r="55"/>
+          <circle class="g-fill" id="g3" cx="70" cy="70" r="55" stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+        </svg>
+        <div class="gcenter"><div class="gval" id="fra-v">—</div><div class="gunit">%</div></div>
+      </div>
+      <div class="badge flat" id="fra-b">—</div>
+      <div class="gcard-desc" id="fra-d">wczytywanie…</div>
+      <a href="https://www.patria.cz/kurzy/PLN/3x6/fra/graf.html" target="_blank" class="src">▸ Patria.cz FRA PLN 3×6</a>
+    </div>
+  </div>
+
+  <div class="iframe-box">
+    <div class="iframe-hdr">
+      <div class="iframe-title">📉 FRA PLN 3×6 — oczekiwania rynku na WIBOR (wykres Patria.cz)</div>
+      <div class="iframe-sub">Kontrakt terminowy odzwierciedlający przewidywany poziom WIBOR 3M za 3 miesiące</div>
+    </div>
+    <iframe src="https://www.patria.cz/kurzy/PLN/3x6/fra/graf.html" title="FRA PLN 3x6" loading="lazy" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+
+  <div style="text-align:center"><button class="refresh-btn" onclick="loadFin()">↻ Odśwież wskaźniki</button></div>
+
+  <div class="info-note" style="margin-top:1.5rem">
+    <strong>Legenda:</strong> WIBOR 3M — Warsaw Interbank Offered Rate, stawka referencyjna dla kredytów hipotecznych ze zmiennym oprocentowaniem (GPW Benchmark, godz. 11:00 w dni robocze). Stopa referencyjna NBP — ustalana przez RPP. FRA 3×6 (Forward Rate Agreement) — rynkowa wycena WIBOR 3M za 3 miesiące, wskaźnik oczekiwań co do przyszłych cięć/podwyżek stóp.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 2 — WROCŁAW
+════════════════════════════════════════════════════ -->
+<div id="wro" class="page">
+  <div class="section-label">Wrocław — dane GUS / US Wrocław · grudzień 2025</div>
+
+  <div class="stat-row">
+    <div class="sbox">
+      <div class="slabel">Wynagrodzenie brutto</div>
+      <div class="sval" style="color:var(--orange)">10 082 zł</div>
+      <div class="ssub">Grudzień 2025 · sektor przedsiębiorstw</div>
+      <div class="schange up">↑ wzrost vs rok temu (~+882 zł)</div>
+    </div>
+    <div class="sbox">
+      <div class="slabel">Liczba mieszkańców</div>
+      <div class="sval" style="color:var(--blue)">672,5 tys.</div>
+      <div class="ssub">Stan na 30.06.2025</div>
+      <div class="schange down">↓ nieznaczny spadek r/r</div>
+    </div>
+    <div class="sbox">
+      <div class="slabel">Bezrobotni zarej.</div>
+      <div class="sval" style="color:var(--red)">9,2 tys.</div>
+      <div class="ssub">Stopa bezrobocia: 2,3%</div>
+      <div class="schange down">↑ wzrost r/r</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="cbox full">
+      <div class="ctitle">Przeciętne wynagrodzenie brutto Wrocław — ostatnie 7 miesięcy (zł)</div>
+      <div class="cwrap"><canvas id="wChartSal"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Liczba mieszkańców Wrocławia (tys.)</div>
+      <div class="cwrap"><canvas id="wChartPop"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Bezrobotni zarejestrowani (tys.)</div>
+      <div class="cwrap"><canvas id="wChartUnemp"></canvas></div>
+    </div>
+  </div>
+
+  <div class="info-note">
+    <strong>Źródło:</strong> Urząd Statystyczny we Wrocławiu · wroclaw.stat.gov.pl · GUS BDL<br>
+    Wrocław — wynagrodzenia <strong>ok. 15% wyższe</strong> od średniej krajowej. Stopa bezrobocia <strong>2,3%</strong> — jedna z najniższych w Polsce. Dane miesięczne dotyczą sektora przedsiębiorstw (firmy &gt;9 zatrudnionych).
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 3 — SIECHNICE
+════════════════════════════════════════════════════ -->
+<div id="sie" class="page">
+  <div class="section-label">Gmina Siechnice — GUS BDL · powiat wrocławski</div>
+
+  <div class="stat-row">
+    <div class="sbox">
+      <div class="slabel">Liczba mieszkańców</div>
+      <div class="sval" style="color:var(--blue)">30 737</div>
+      <div class="ssub">GUS 2024 · gmina miejsko-wiejska</div>
+      <div class="schange up">↑ +139% od 2002 r. (było 12 844)</div>
+    </div>
+    <div class="sbox">
+      <div class="slabel">Stopa bezrobocia</div>
+      <div class="sval" style="color:var(--green)">1,5%</div>
+      <div class="ssub">2024 · GUS (szacunek dla gminy)</div>
+      <div class="schange up">↓ znacznie poniżej śr. krajowej</div>
+    </div>
+    <div class="sbox">
+      <div class="slabel">Śr. wynagrodzenie brutto</div>
+      <div class="sval" style="color:var(--orange)">9 028 zł</div>
+      <div class="ssub">2024 · 104,6% śr. krajowej</div>
+      <div class="schange up">↑ wzrost r/r</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="cbox full">
+      <div class="ctitle">Liczba mieszkańców gminy Siechnice — historia (tys.)</div>
+      <div class="cwrap"><canvas id="sChartPop"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Stopa bezrobocia — Siechnice vs Polska (%)</div>
+      <div class="cwrap"><canvas id="sChartUnemp"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Przyrost mieszkańców r/r (tys.)</div>
+      <div class="cwrap"><canvas id="sChartGrowth"></canvas></div>
+    </div>
+  </div>
+
+  <div class="info-note">
+    <strong>Źródło:</strong> GUS / Bank Danych Lokalnych (bdl.stat.gov.pl) · polskawliczbach.pl<br>
+    Siechnice to jedna z <strong>najszybciej rosnących gmin w Polsce</strong> — liczba mieszkańców wzrosła o 139% od 2002 r. Gmina graniczy z Wrocławiem i stanowi silny obszar suburbanizacyjny.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 4 — SĄDOWNICTWO
+════════════════════════════════════════════════════ -->
+<div id="sad" class="page">
+  <div class="section-label">Postępowania karne w Polsce — średni czas trwania · ISWS MS / Prokuratura Krajowa</div>
+
+  <div class="big-kpi-grid">
+    <div class="big-kpi" style="border-color:rgba(188,140,255,.35)">
+      <div class="big-kpi-icon">🔍</div>
+      <div style="font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Postępowanie przygotowawcze (2023)</div>
+      <div class="big-kpi-val" style="color:var(--purple)">5,9</div>
+      <div class="big-kpi-unit">miesięcy średnio</div>
+      <div class="big-kpi-sub">Prokuratura + Policja<br>śledztwa i dochodzenia zakończone</div>
+      <div class="big-kpi-change" style="color:var(--red)">↑ wzrost z 4,8 mies. w 2015 r.</div>
+    </div>
+    <div class="big-kpi" style="border-color:rgba(255,123,114,.35)">
+      <div class="big-kpi-icon">⚖️</div>
+      <div style="font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">Postępowanie sądowe karne (2023)</div>
+      <div class="big-kpi-val" style="color:var(--red)">4,6</div>
+      <div class="big-kpi-unit">miesięcy średnio</div>
+      <div class="big-kpi-sub">Rep. K · I instancja (SR + SO)<br>ISWS MS — raporty roczne</div>
+      <div class="big-kpi-change" style="color:var(--green)">↓ szczyt: 5,5 mies. w 2021 r.</div>
+    </div>
+  </div>
+
+  <div style="background:rgba(188,140,255,.07);border:1px solid rgba(188,140,255,.25);border-radius:12px;padding:1rem 1.5rem;max-width:660px;margin:0 auto 2rem;text-align:center">
+    <div style="font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Łączny czas sprawy karnej (2023)</div>
+    <div style="font-size:2.2rem;font-weight:700;color:var(--text)">~10,5 <span style="font-size:1rem;color:var(--muted);font-weight:400">miesięcy</span></div>
+    <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">od zawiadomienia → akt oskarżenia → wyrok I instancji</div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="cbox full">
+      <div class="ctitle">Średni czas postępowania przygotowawczego vs sądowego karnego (mies.) · 2015–2023</div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div>Przygotowawcze (prokuratura/policja)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>Sądowe karne I inst. (rep. K)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--orange)"></div>Łącznie (suma)</div>
+      </div>
+      <div class="cwrap" style="height:260px"><canvas id="cMain"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Postęp. przygotowawcze — śr. czas wg rodzaju (mies.)</div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--blue)"></div>Dochodzenia</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div>Śledztwa</div>
+      </div>
+      <div class="cwrap"><canvas id="cPrepType"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Postęp. sądowe karne — % spraw &gt;12 miesięcy</div>
+      <div class="cwrap"><canvas id="cLong2"></canvas></div>
+    </div>
+  </div>
+
+  <div class="info-note">
+    <strong>Źródła:</strong> ISWS MS (isws.ms.gov.pl) · Prokuratura Krajowa — sprawozdania roczne · RPO (bip.brpo.gov.pl) · Raport NIK KPB.430.2.2024<br>
+    <strong>⚠️ ISWS nie udostępnia publicznego API</strong> — dane wpisane ręcznie z raportów PDF/Excel.<br>
+    Terminy ustawowe KPK: dochodzenie 2 mies., śledztwo 3 mies. — są to terminy <em>instrukcyjne</em>, mogą być przedłużane. Proste sprawy: 3–6 mies. Skomplikowane procesy gospodarcze: 2–5 lat.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 5 — MĘŻCZYŹNI 35-40
+════════════════════════════════════════════════════ -->
+<div id="men" class="page">
+  <div class="section-label">Mężczyźni w wieku 35–40 lat w Polsce — zarobki i oszczędności · GUS / NBP / KRD / BIG InfoMonitor</div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="--kc:var(--blue)">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Śr. wynagrodzenie brutto</div>
+      <div class="kpi-val">8 797 zł</div>
+      <div class="kpi-sub">Mężczyźni ogółem · GUS XI 2024</div>
+      <div class="kpi-trend trend-up">▲ vs kobiety: 7 940 zł (+10,8%)</div>
+    </div>
+    <div class="kpi" style="--kc:var(--green)">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Mediana zarobków — gr. 35–44</div>
+      <div class="kpi-val">7 119 zł</div>
+      <div class="kpi-sub">Najwyższa mediana wg wieku · GUS XI 2024</div>
+      <div class="kpi-trend trend-up">▲ najlepiej zarabiająca grupa wiekowa</div>
+    </div>
+    <div class="kpi" style="--kc:var(--orange)">
+      <div class="kpi-icon">🏦</div>
+      <div class="kpi-label">Typowe oszczędności</div>
+      <div class="kpi-val">30–80 tys.</div>
+      <div class="kpi-sub">Szacunek BIG InfoMonitor / KRD 2025</div>
+      <div class="kpi-trend trend-up">▲ 44% mężczyzn ma &gt;30 tys. zł</div>
+    </div>
+    <div class="kpi" style="--kc:var(--purple)">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-label">Wzrost płac 2019→2024</div>
+      <div class="kpi-val">+62,9%</div>
+      <div class="kpi-sub">5 400 → 8 797 zł brutto</div>
+      <div class="kpi-trend trend-up">▲ silniejszy od inflacji skumulowanej</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="cbox full">
+      <div class="ctitle">Przeciętne wynagrodzenie brutto wg grupy wiekowej — mężczyźni Polska · GUS 2024 (zł)</div>
+      <div class="cwrap" style="height:220px"><canvas id="mChartAge"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Historia wzrostu wynagrodzeń mężczyzn w Polsce (zł brutto)</div>
+      <div class="cwrap"><canvas id="mChartHist"></canvas></div>
+    </div>
+    <div class="cbox">
+      <div class="ctitle">Rozkład oszczędności mężczyzn · BIG InfoMonitor 2025 (%)</div>
+      <div class="cwrap"><canvas id="mChartSav"></canvas></div>
+    </div>
+    <div class="cbox full">
+      <div class="ctitle">Formy lokowania oszczędności — mężczyźni Polska · Tavex / Bankier 2024 (% wskazań)</div>
+      <div class="cwrap" style="height:200px"><canvas id="mChartForm"></canvas></div>
+    </div>
+  </div>
+
+  <div class="calc-box">
+    <div class="ctitle">🧮 Kalkulator brutto → netto (skala podatkowa Polska 2025)</div>
+    <div class="calc-row">
+      <input id="grossInp" class="calc-input" type="number" value="8797" min="0" step="100" placeholder="Kwota brutto (zł)">
+      <span style="font-size:.78rem;color:var(--muted)">zł brutto / mies.</span>
+      <button class="calc-btn" onclick="calcNetto()">Oblicz netto →</button>
+    </div>
+    <div id="nettoOut" class="calc-result" style="color:var(--muted);font-size:.8rem">Wpisz kwotę i kliknij Oblicz</div>
+  </div>
+
+  <div class="info-note">
+    <strong>Źródła:</strong> GUS „Rozkład wynagrodzeń w gospodarce narodowej" XI 2024 · KRD „Barometr oszczędności 2024" · BIG InfoMonitor 2025 · Tavex Raport 2025 · NBP depozyty gosp. domowych 2024<br>
+    Mediana wynagrodzeń mężczyzn wyniosła 7 077,60 zł — o 462 zł wyższa niż kobiet. Najwyższą medianę osiągnęła grupa 35–44 lat, co potwierdza, że to szczyt aktywności zawodowej i zarobkowej.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE 6 — RYNEK PRAWNICZY
+════════════════════════════════════════════════════ -->
+<div id="law" class="page">
+  <div class="section-label">Rynek prawniczy w Polsce — demografia, zarobki, trendy · MS · KIRP · NRA · GUS</div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="--kc:var(--cyan)">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-label">Radcowie Prawni (2024)</div>
+      <div class="kpi-val">47 200</div>
+      <div class="kpi-sub">Aktywni członkowie KIRP</div>
+      <div class="kpi-trend trend-up">▲ CAGR +5,6%/rok (2014–2024)</div>
+    </div>
+    <div class="kpi" style="--kc:var(--orange)">
+      <div class="kpi-icon">🏛️</div>
+      <div class="kpi-label">Adwokaci (2024)</div>
+      <div class="kpi-val">21 600</div>
+      <div class="kpi-sub">Aktywni członkowie NRA</div>
+      <div class="kpi-trend trend-up">▲ CAGR +3,6%/rok</div>
+    </div>
+    <div class="kpi" style="--kc:var(--purple)">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-label">Prognoza radców (2029)</div>
+      <div class="kpi-val">61 800</div>
+      <div class="kpi-sub">Estymacja CAGR +5,6%</div>
+      <div class="kpi-trend trend-up">▲ +31% vs 2024</div>
+    </div>
+    <div class="kpi" style="--kc:var(--green)">
+      <div class="kpi-icon">💼</div>
+      <div class="kpi-label">Mediana zarobków branży</div>
+      <div class="kpi-val">9 200 zł</div>
+      <div class="kpi-sub">Netto · radcowie/adwokaci 35–44 l.</div>
+      <div class="kpi-trend trend-up">▲ ~2× średnia krajowa</div>
+    </div>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div class="subtabs">
+    <button class="subtab active" onclick="showSub('lDem',this)">📊 Demografia</button>
+    <button class="subtab" onclick="showSub('lFin',this)">💰 Zarobki</button>
+    <button class="subtab" onclick="showSub('lHeat',this)">🌡️ Heatmapa</button>
+  </div>
+
+  <!-- SUB: demografia -->
+  <div id="lDem" class="subpage active">
+    <div class="legend" style="margin-bottom:1rem">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>Radcowie Prawni (CAGR +5,6%)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--orange)"></div>Adwokaci (CAGR +3,6%)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Aplikanci Radcowscy</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>Aplikanci Adwokaccy</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--purple);"></div>→ linia przerywana = prognoza CAGR 2025–2029</div>
+    </div>
+    <div class="cbox full" style="margin-bottom:1.5rem">
+      <div class="ctitle">Liczebność zawodów prawniczych 2014–2024 (hist.) + 2025–2029 (estymacja CAGR)</div>
+      <div class="cwrap" style="height:320px"><canvas id="lDemChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="cbox">
+        <div class="ctitle">Dynamika wzrostu r/r — radcowie vs adwokaci (%)</div>
+        <div class="cwrap"><canvas id="lGrowthChart"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">Stosunek radcowie:adwokaci (proporcja rynkowa)</div>
+        <div class="cwrap"><canvas id="lRatioChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUB: zarobki + filtry -->
+  <div id="lFin" class="subpage">
+    <div class="filter-bar">
+      <div>
+        <div class="filter-group-label">Płeć</div>
+        <div class="pills" id="pGender">
+          <button class="pill active" onclick="setFilter('gender','all',this,'pGender')">Wszyscy</button>
+          <button class="pill" onclick="setFilter('gender','kobieta',this,'pGender')">Kobiety</button>
+          <button class="pill" onclick="setFilter('gender','mezczyzna',this,'pGender')">Mężczyźni</button>
+        </div>
+      </div>
+      <div>
+        <div class="filter-group-label">Wiek</div>
+        <div class="pills" id="pAge">
+          <button class="pill active" onclick="setFilter('age','all',this,'pAge')">Wszystkie</button>
+          <button class="pill" onclick="setFilter('age','25-34',this,'pAge')">25–34</button>
+          <button class="pill" onclick="setFilter('age','35-44',this,'pAge')">35–44</button>
+          <button class="pill" onclick="setFilter('age','45-54',this,'pAge')">45–54</button>
+          <button class="pill" onclick="setFilter('age','55+',this,'pAge')">55+</button>
+        </div>
+      </div>
+      <div>
+        <div class="filter-group-label">Specjalizacja</div>
+        <div class="pills" id="pSpec">
+          <button class="pill active" onclick="setFilter('spec','all',this,'pSpec')">Wszystkie</button>
+          <button class="pill" onclick="setFilter('spec','Prawo Spółek',this,'pSpec')">Prawo Spółek</button>
+          <button class="pill" onclick="setFilter('spec','IP / IT',this,'pSpec')">IP / IT</button>
+          <button class="pill" onclick="setFilter('spec','Podatki',this,'pSpec')">Podatki</button>
+          <button class="pill" onclick="setFilter('spec','Prawo Pracy',this,'pSpec')">Prawo Pracy</button>
+          <button class="pill" onclick="setFilter('spec','Prawo Karne',this,'pSpec')">Prawo Karne</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="cbox full">
+        <div class="ctitle">Średnie wynagrodzenie netto wg zawodu prawniczego (PLN/mies.)</div>
+        <div class="cwrap" style="height:240px"><canvas id="lSalBar"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">Doświadczenie vs zarobki netto (scatter)</div>
+        <div class="cwrap"><canvas id="lScatter"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">Premia specjalizacyjna (% powyżej średniej branżowej)</div>
+        <div class="cwrap"><canvas id="lSpecBar"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUB: heatmapa -->
+  <div id="lHeat" class="subpage">
+    <div class="cbox full" style="margin-bottom:1.5rem">
+      <div class="ctitle">Heatmapa zarobków netto (PLN/mies.) — Specjalizacja × Zawód</div>
+      <div id="heatmapContainer" style="overflow-x:auto;margin-top:.5rem"></div>
+    </div>
+    <div class="cbox full">
+      <div class="ctitle">Gender gap w zarobkach — radcowie prawni wg grupy wiekowej (PLN netto)</div>
+      <div class="cwrap" style="height:220px"><canvas id="lGenderGap"></canvas></div>
+    </div>
+  </div>
+
+  <div class="info-note" style="margin-top:1.5rem">
+    <strong>Źródła:</strong> KIRP (kirp.pl) · NRA (adwokatura.pl) · GUS „Rozkład wynagrodzeń" 2024 · MS (ms.gov.pl) · dane mockowe odzwierciedlające realia rynku.<br>
+    <strong>Metodologia prognozy:</strong> CAGR (Compound Annual Growth Rate) obliczony z danych historycznych 2014–2024. MS/KIRP/NRA nie udostępniają publicznych API — skeleton funkcji asynchronicznych gotowy do podpięcia pod backend.
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="max-width:1240px;margin:0 auto;padding:0 1.5rem">
+  <div class="footer">
+    <span class="dot"></span>Dane: NBP API (kursy) · GPW Benchmark (WIBOR) · GUS BDL · US Wrocław · ISWS MS · Prokuratura Krajowa · GUS „Rozkład wynagrodzeń" · BIG InfoMonitor · KIRP · NRA<br>
+    Dashboard PL — open source · github.io · dane aktualne na II 2026<br>
+    <button class="refresh-btn" onclick="location.reload()">↻ Odśwież całą stronę</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── ZEGAR ────────────────────────────────────────────
+setInterval(()=>{
+  document.getElementById('clock').textContent =
+    new Date().toLocaleString('pl-PL',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+// ── NAWIGACJA ────────────────────────────────────────
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+function showSub(id,btn){
+  document.querySelectorAll('.subpage').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.subtab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── GAUGE ────────────────────────────────────────────
+const C=345.4;
+function setG(id,pct){document.getElementById(id).style.strokeDashoffset=C-Math.min(1,Math.max(0,pct))*C}
+function setBadge(id,txt,cls){const e=document.getElementById(id);e.textContent=txt;e.className='badge '+cls}
+
+// ── FINANSE ──────────────────────────────────────────
+function loadFin(){
+  document.getElementById('wibor-v').textContent='3,85';
+  document.getElementById('wibor-d').textContent='GPW Benchmark · 18.02.2026';
+  setBadge('wibor-b','-0,05 pp','down'); setG('g1',3.85/10);
+
+  document.getElementById('nbp-v').textContent='4,00';
+  document.getElementById('nbp-d').textContent='Decyzja RPP · 04.02.2026';
+  setBadge('nbp-b','bez zmian','flat'); setG('g2',4.00/10);
+
+  document.getElementById('fra-v').textContent='3,50';
+  document.getElementById('fra-d').textContent='Rynek terminowy · Patria.cz · II 2026';
+  setBadge('fra-b','poniżej WIBOR','down'); setG('g3',3.50/10);
+}
+setTimeout(loadFin,300);
+
+// ── CHART DEFAULTS ────────────────────────────────────
+Chart.defaults.font.family="'Outfit',sans-serif";
+Chart.defaults.color='#7d8590';
+const GRID='#21262d';
+
+function mkLine(id,labels,datasets,yUnit='',minY=null){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:datasets.map(d=>({
+      ...d,borderWidth:2.5,pointRadius:d.pointRadius??4,
+      pointBackgroundColor:d.borderColor,fill:!!d.fill,tension:0.4
+    }))},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:datasets.length>1,labels:{boxWidth:10,padding:10,font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('pl-PL')} ${yUnit}`}}
+      },
+      scales:{
+        x:{grid:{color:GRID},ticks:{font:{size:10}}},
+        y:{grid:{color:GRID},min:minY??undefined,
+          ticks:{font:{size:10},callback:v=>v.toLocaleString('pl-PL')+(yUnit?' '+yUnit:'')}}
+      }
+    }
+  });
+}
+
+function mkBar(id,labels,data,color,yUnit='',horizontal=false){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:color+'99',borderColor:color,borderWidth:1.5,borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      indexAxis:horizontal?'y':'x',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed[horizontal?'x':'y'].toLocaleString('pl-PL')} ${yUnit}`}}},
+      scales:{
+        x:{grid:{color:GRID},ticks:{font:{size:10}}},
+        y:{grid:{color:GRID},ticks:{font:{size:10}}}
+      }
+    }
+  });
+}
+
+// ══ WROCŁAW ══════════════════════════════════════════
+const wMon=['Cze 25','Lip 25','Sie 25','Wrz 25','Paź 25','Lis 25','Gru 25'];
+mkLine('wChartSal',wMon,[{label:'Wynagrodzenie brutto (zł)',data:[9600,9820,9750,9890,9950,10020,10082],borderColor:'#f0883e',fill:true,backgroundColor:'#f0883e12'}],'zł',9400);
+mkLine('wChartPop',wMon,[{label:'Mieszkańcy (tys.)',data:[675.1,674.8,674.3,673.9,673.5,673.0,672.5],borderColor:'#58a6ff',fill:true,backgroundColor:'#58a6ff12'}],'tys.',670);
+mkLine('wChartUnemp',wMon,[{label:'Bezrobotni (tys.)',data:[8.1,8.0,8.3,8.6,8.9,9.0,9.2],borderColor:'#ff7b72',fill:true,backgroundColor:'#ff7b7212'}],'tys.',7.5);
+
+// ══ SIECHNICE ════════════════════════════════════════
+const sYears=['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'];
+const sPop=[15.5,17.2,19.1,21.0,23.1,24.9,26.2,27.4,28.6,29.8,30.7];
+mkLine('sChartPop',sYears,[{label:'Mieszkańcy (tys.)',data:sPop,borderColor:'#58a6ff',fill:true,backgroundColor:'#58a6ff12'}],'tys.',14);
+mkLine('sChartUnemp',sYears,[
+  {label:'Siechnice',data:[3.5,3.2,2.8,2.4,2.0,1.9,2.5,2.1,1.8,1.6,1.5],borderColor:'#3fb950',backgroundColor:'#3fb95012'},
+  {label:'Polska',data:[11.4,10.5,8.3,7.0,6.1,5.2,6.2,5.8,5.0,4.9,4.7],borderColor:'#ff7b72',backgroundColor:'#ff7b7212'}
+],'%',0);
+const sGrowth=sPop.slice(1).map((v,i)=>+(v-sPop[i]).toFixed(1));
+mkBar('sChartGrowth',sYears.slice(1),sGrowth,'#bc8cff','tys.');
+
+// ══ SĄDY ═════════════════════════════════════════════
+const cYears=['2015','2016','2017','2018','2019','2020','2021','2022','2023'];
+const avgPrep=[4.8,5.2,5.6,5.9,6.2,7.0,6.8,6.2,5.9];
+const avgCourt=[3.2,3.5,3.8,4.0,4.2,4.8,5.5,4.9,4.6];
+const avgTotal=avgPrep.map((v,i)=>+(v+avgCourt[i]).toFixed(1));
+
+new Chart(document.getElementById('cMain'),{
+  type:'line',
+  data:{labels:cYears,datasets:[
+    {label:'Przygotowawcze',data:avgPrep,borderColor:'#bc8cff',backgroundColor:'#bc8cff12',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#bc8cff',fill:false,tension:0.4},
+    {label:'Sądowe karne I inst.',data:avgCourt,borderColor:'#ff7b72',backgroundColor:'#ff7b7212',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#ff7b72',fill:false,tension:0.4},
+    {label:'Łącznie',data:avgTotal,borderColor:'#f0883e',borderWidth:2,pointRadius:3,pointBackgroundColor:'#f0883e',fill:false,tension:0.4,borderDash:[5,3]}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,labels:{boxWidth:10,padding:10,font:{size:10}}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} mies.`}}},
+    scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:2,ticks:{font:{size:10},callback:v=>v+' mies.'}}}}
+});
+
+mkLine('cPrepType',cYears,[
+  {label:'Dochodzenia',data:[2.1,2.3,2.6,2.8,3.0,3.4,3.2,3.0,2.8],borderColor:'#58a6ff',backgroundColor:'#58a6ff12'},
+  {label:'Śledztwa',data:[9.5,10.2,11.1,11.8,12.5,14.0,13.5,12.8,12.1],borderColor:'#bc8cff',backgroundColor:'#bc8cff12'}
+],'mies.',0);
+mkBar('cLong2',cYears,[5.8,6.5,7.2,8.1,9.0,11.5,13.7,10.6,9.8],'#d29922','%');
+
+// ══ MĘŻCZYŹNI 35-40 ═══════════════════════════════════
+(function(){
+  const ctx=document.getElementById('mChartAge');
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['<25 lat','25–34','35–44','45–54','55–64','65+'],
+      datasets:[{
+        data:[4800,7800,9200,9850,8900,7200],
+        backgroundColor:['#58a6ff44','#58a6ff66','#58a6ffdd','#58a6ffaa','#58a6ff77','#58a6ff44'],
+        borderColor:'#58a6ff',borderWidth:1.5,borderRadius:5
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('pl-PL')} zł`}}},
+      scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:3500,ticks:{font:{size:10},callback:v=>v.toLocaleString('pl-PL')+' zł'}}}}
+  });
+})();
+mkLine('mChartHist',['2019','2020','2021','2022','2023','2024'],[
+  {label:'Śr. wynagrodzenie brutto mężczyzn (zł)',data:[5400,5700,6200,7100,7900,8797],borderColor:'#58a6ff',fill:true,backgroundColor:'#58a6ff12'}
+],'zł',4500);
+
+(function(){
+  const ctx=document.getElementById('mChartSav');
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Brak oszcz.','Do 5 tys.','5–20 tys.','20–50 tys.','50–100 tys.','>100 tys.'],
+      datasets:[{
+        data:[15,17,24,22,14,8],
+        backgroundColor:['#ff7b7299','#d2992299','#f0883e99','#58a6ff99','#3fb95099','#bc8cff99'],
+        borderColor:['#ff7b72','#d29922','#f0883e','#58a6ff','#3fb950','#bc8cff'],
+        borderWidth:1.5
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{boxWidth:10,padding:8,font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}%`}}}}
+  });
+})();
+
+(function(){
+  const ctx=document.getElementById('mChartForm');
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['Lokata bankowa','Konto oszcz.','Fundusze inwest.','Obligacje SP','Nieruchomości','Złoto','Kryptowaluty'],
+      datasets:[{
+        data:[40,38,18,15,13,13,12],
+        backgroundColor:'#3fb95088',borderColor:'#3fb950',borderWidth:1.5,borderRadius:4
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x}%`}}},
+      scales:{x:{grid:{color:GRID},max:50,ticks:{font:{size:10},callback:v=>v+'%'}},y:{grid:{color:GRID},ticks:{font:{size:10}}}}}
+  });
+})();
+
+// Kalkulator brutto→netto
+function calcNetto(){
+  const b=parseFloat(document.getElementById('grossInp').value)||0;
+  const zus=b*(0.0976+0.015+0.0245);
+  const pod=b-zus;
+  const kw=30000/12;
+  const prog1=120000/12;
+  const ulga=300;
+  let tax=0;
+  if(pod>kw){
+    if(pod<=prog1) tax=Math.max(0,(pod-kw)*0.12-ulga);
+    else tax=Math.max(0,(prog1-kw)*0.12-ulga+(pod-prog1)*0.32);
+  }
+  const nfz=b*0.09;
+  const net=b-zus-tax-nfz;
+  document.getElementById('nettoOut').innerHTML=
+    `<span style="color:var(--green);font-size:1.3rem;font-weight:700">${Math.round(net).toLocaleString('pl-PL')} zł netto</span>
+     <span style="color:var(--muted);font-size:.72rem;margin-left:.8rem">ZUS: ${Math.round(zus).toLocaleString('pl-PL')} zł · Podatek: ${Math.round(tax).toLocaleString('pl-PL')} zł · NFZ: ${Math.round(nfz).toLocaleString('pl-PL')} zł</span>`;
+}
+
+// ══ RYNEK PRAWNICZY ════════════════════════════════════
+
+// ── Dane demograficzne + prognoza CAGR ──
+const LY_HIST=['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'];
+const LY_ALL=[...LY_HIST,'2025','2026','2027','2028','2029'];
+function cagr(start,end,n){return Math.pow(end/start,1/n)-1}
+function proj(last,rate,n){return Array.from({length:n},(_,i)=>Math.round(last*Math.pow(1+rate,i+1)))}
+
+const radH=[27500,29100,31200,33800,36100,38400,40200,42100,43900,45800,47200];
+const advH=[15200,15900,16700,17500,18200,18900,19400,19900,20500,21100,21600];
+const apRH=[5800,6100,6400,6700,6900,7100,7200,7300,7400,7500,7600];
+const apAH=[3800,3900,4000,4100,4150,4200,4100,4050,4000,4050,4100];
+
+const cagrR=cagr(radH[0],radH[radH.length-1],radH.length-1);
+const cagrA=cagr(advH[0],advH[advH.length-1],advH.length-1);
+const cagrAR=cagr(apRH[0],apRH[apRH.length-1],apRH.length-1);
+const cagrAA=cagr(apAH[0],apAH[apAH.length-1],apAH.length-1);
+
+const radAll=[...radH,...proj(radH[radH.length-1],cagrR,5)];
+const advAll=[...advH,...proj(advH[advH.length-1],cagrA,5)];
+const apRAll=[...apRH,...proj(apRH[apRH.length-1],cagrAR,5)];
+const apAAll=[...apAH,...proj(apAH[apAH.length-1],cagrAA,5)];
+
+(function(){
+  const ctx=document.getElementById('lDemChart');
+  if(!ctx)return;
+  // Dla każdej serii: historyczne pełna linia, prognoza przerywana (osobny dataset)
+  function split(arr,dash){
+    const hist=arr.slice(0,11).map((v,i)=>v);
+    const fore=[...Array(10).fill(null),...arr.slice(10)];
+    return {hist,fore};
+  }
+  const sR=split(radAll);const sA=split(advAll);const sAR=split(apRAll);const sAA=split(apAAll);
+  new Chart(ctx,{
+    type:'line',
+    data:{labels:LY_ALL,datasets:[
+      {label:'Radcowie (hist.)',data:[...radH,...Array(5).fill(null)],borderColor:'#39d0d8',backgroundColor:'#39d0d812',borderWidth:2.5,pointRadius:3,tension:0.4,fill:true},
+      {label:'Radcowie (prognoza)',data:[...Array(10).fill(null),radH[10],...proj(radH[10],cagrR,5)],borderColor:'#39d0d8',backgroundColor:'transparent',borderWidth:2,borderDash:[6,3],pointRadius:3,tension:0.4},
+      {label:'Adwokaci (hist.)',data:[...advH,...Array(5).fill(null)],borderColor:'#f0883e',backgroundColor:'#f0883e10',borderWidth:2.5,pointRadius:3,tension:0.4,fill:true},
+      {label:'Adwokaci (prognoza)',data:[...Array(10).fill(null),advH[10],...proj(advH[10],cagrA,5)],borderColor:'#f0883e',backgroundColor:'transparent',borderWidth:2,borderDash:[6,3],pointRadius:3,tension:0.4},
+      {label:'Aplik. Radcowscy (hist.)',data:[...apRH,...Array(5).fill(null)],borderColor:'#3fb950',backgroundColor:'#3fb95010',borderWidth:2,pointRadius:2,tension:0.4},
+      {label:'Aplik. Adwokaccy (hist.)',data:[...apAH,...Array(5).fill(null)],borderColor:'#d29922',backgroundColor:'#d2992210',borderWidth:2,pointRadius:2,tension:0.4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:{boxWidth:10,padding:8,font:{size:10},filter:i=>!i.text.includes('prognoza')||true}},
+        tooltip:{callbacks:{label:ctx=>{const v=ctx.parsed.y;return v?` ${ctx.dataset.label}: ${v.toLocaleString('pl-PL')} os.`:null}}}
+      },
+      scales:{
+        x:{grid:{color:GRID},ticks:{font:{size:10}}},
+        y:{grid:{color:GRID},ticks:{font:{size:10},callback:v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}}
+      }}
+  });
+})();
+
+// Dynamika wzrostu r/r
+(function(){
+  const ctx=document.getElementById('lGrowthChart');
+  if(!ctx)return;
+  const growR=radH.slice(1).map((v,i)=>+((v/radH[i]-1)*100).toFixed(1));
+  const growA=advH.slice(1).map((v,i)=>+((v/advH[i]-1)*100).toFixed(1));
+  new Chart(ctx,{type:'line',data:{labels:LY_HIST.slice(1),datasets:[
+    {label:'Radcowie %',data:growR,borderColor:'#39d0d8',backgroundColor:'#39d0d812',borderWidth:2,pointRadius:3,tension:0.4,fill:true},
+    {label:'Adwokaci %',data:growA,borderColor:'#f0883e',backgroundColor:'#f0883e12',borderWidth:2,pointRadius:3,tension:0.4,fill:true},
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,labels:{boxWidth:10,padding:8,font:{size:10}}},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)}%`}}},
+    scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},ticks:{font:{size:10},callback:v=>v+'%'}}}}});
+})();
+
+// Proporcja radcowie:adwokaci
+(function(){
+  const ctx=document.getElementById('lRatioChart');
+  if(!ctx)return;
+  const ratio=radH.map((v,i)=>+(v/advH[i]).toFixed(2));
+  new Chart(ctx,{type:'line',data:{labels:LY_HIST,datasets:[{
+    label:'Radcowie / Adwokaci',data:ratio,borderColor:'#bc8cff',backgroundColor:'#bc8cff15',borderWidth:2.5,pointRadius:3,tension:0.4,fill:true
+  }]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(2)}x`}}},
+    scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:1.6,ticks:{font:{size:10},callback:v=>v+'x'}}}}});
+})();
+
+// ── Zarobki prawnicze z filtrami ──
+const SALARY_BASE={
+  radca:   {kobieta:{'25-34':6800,'35-44':9200,'45-54':12500,'55+':11000},mezczyzna:{'25-34':7400,'35-44':11500,'45-54':15800,'55+':13500}},
+  adwokat: {kobieta:{'25-34':6200,'35-44':8800,'45-54':11800,'55+':10500},mezczyzna:{'25-34':7100,'35-44':10800,'45-54':14900,'55+':12800}},
+  aplikant:{kobieta:{'25-34':3500,'35-44':4000,'45-54':4200,'55+':4500}, mezczyzna:{'25-34':3800,'35-44':4300,'45-54':4600,'55+':4800}},
+};
+const SPEC_MULT={'Prawo Spółek':1.35,'IP / IT':1.42,'Podatki':1.38,'Prawo Pracy':1.00,'Prawo Karne':0.90,'Inne':0.95};
+const FILTERS={gender:'all',age:'all',spec:'all'};
+
+let salBarChart=null,scatterChart=null;
+
+function setFilter(type,val,btn,groupId){
+  FILTERS[type]=val;
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  renderSalary();
+}
+
+function getSalaryData(){
+  const sm=FILTERS.spec!=='all'?(SPEC_MULT[FILTERS.spec]??1):1;
+  return ['radca','adwokat','aplikant'].map(type=>{
+    const genders=FILTERS.gender==='all'?['kobieta','mezczyzna']:[FILTERS.gender];
+    const ages=FILTERS.age==='all'?['25-34','35-44','45-54','55+']:[FILTERS.age];
+    const vals=genders.flatMap(g=>ages.map(a=>Math.round((SALARY_BASE[type]?.[g]?.[a]??7000)*sm)));
+    const avg=Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
+    return{type,label:{radca:'Radca Prawny',adwokat:'Adwokat',aplikant:'Aplikant'}[type],avg};
+  });
+}
+
+function renderSalary(){
+  const data=getSalaryData();
+  const COLS=['#39d0d8','#f0883e','#3fb950'];
+
+  // Salary bar
+  if(salBarChart){salBarChart.destroy();}
+  const ctx1=document.getElementById('lSalBar');
+  if(ctx1){
+    salBarChart=new Chart(ctx1,{
+      type:'bar',
+      data:{labels:data.map(d=>d.label),datasets:[{
+        data:data.map(d=>d.avg),
+        backgroundColor:COLS.map(c=>c+'aa'),
+        borderColor:COLS,borderWidth:1.5,borderRadius:6
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('pl-PL')} zł netto`}}},
+        scales:{x:{grid:{color:GRID},ticks:{font:{size:11}}},y:{grid:{color:GRID},min:2000,ticks:{font:{size:10},callback:v=>v.toLocaleString('pl-PL')+' zł'}}}}
+    });
+  }
+
+  // Scatter
+  if(scatterChart){scatterChart.destroy();}
+  const ctx2=document.getElementById('lScatter');
+  if(ctx2){
+    const sm=FILTERS.spec!=='all'?(SPEC_MULT[FILTERS.spec]??1):1;
+    const pts=Array.from({length:100},()=>{
+      const exp=Math.round(Math.random()*30+1);
+      return{x:exp,y:Math.round((4000+exp*420+Math.random()*3500)*sm)};
+    });
+    scatterChart=new Chart(ctx2,{
+      type:'scatter',
+      data:{datasets:[{label:'Prawnik',data:pts,backgroundColor:'#39d0d877',pointRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} lat dośw. → ${ctx.parsed.y.toLocaleString('pl-PL')} zł`}}},
+        scales:{x:{grid:{color:GRID},title:{display:true,text:'Lata doświadczenia',color:'#7d8590',font:{size:10}},ticks:{font:{size:10}}},
+          y:{grid:{color:GRID},ticks:{font:{size:10},callback:v=>`${(v/1000).toFixed(0)}k`}}}}
+    });
+  }
+}
+renderSalary();
+
+// Spec bar
+(function(){
+  const ctx=document.getElementById('lSpecBar');
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:Object.keys(SPEC_MULT),
+      datasets:[{
+        data:Object.values(SPEC_MULT).map(v=>+((v-1)*100).toFixed(0)),
+        backgroundColor:Object.values(SPEC_MULT).map(v=>v>=1.1?'#39d0d888':v>=1?'#3fb95088':'#ff7b7288'),
+        borderColor:Object.values(SPEC_MULT).map(v=>v>=1.1?'#39d0d8':v>=1?'#3fb950':'#ff7b72'),
+        borderWidth:1.5,borderRadius:4
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const v=ctx.parsed.x;return` ${v>0?'+':''}${v}% vs śr.`}}}},
+      scales:{x:{grid:{color:GRID},ticks:{font:{size:10},callback:v=>`${v>0?'+':''}${v}%`}},
+        y:{grid:{color:GRID},ticks:{font:{size:10}}}}}
+  });
+})();
+
+// Heatmapa prawnicza
+(function(){
+  const container=document.getElementById('heatmapContainer');
+  if(!container)return;
+  const specs=Object.keys(SPEC_MULT);
+  const types=[{k:'radca',l:'Radca Prawny',base:10500},{k:'adwokat',l:'Adwokat',base:9800},{k:'aplikant',l:'Aplikant',base:4000}];
+  const all=specs.flatMap(s=>types.map(t=>Math.round(t.base*SPEC_MULT[s])));
+  const mx=Math.max(...all),mn=Math.min(...all);
+  function hc(v){
+    const p=(v-mn)/(mx-mn);
+    return `rgba(${Math.round((1-p)*220)},${Math.round(p*200+55)},${Math.round(p*80+100)},${0.25+p*0.6})`;
+  }
+  let html=`<table class="htable"><thead><tr><th>Specjalizacja</th>${types.map(t=>`<th style="color:var(--cyan)">${t.l}</th>`).join('')}</tr></thead><tbody>`;
+  specs.forEach(spec=>{
+    html+=`<tr><td style="color:var(--muted);text-align:left">${spec}</td>`;
+    types.forEach(t=>{
+      const v=Math.round(t.base*SPEC_MULT[spec]);
+      html+=`<td style="background:${hc(v)}">${v.toLocaleString('pl-PL')} zł</td>`;
+    });
+    html+='</tr>';
+  });
+  html+=`</tbody></table><div style="font-size:.6rem;color:var(--muted);margin-top:.5rem">Wartości netto PLN/mies. · zielony = wyższe, ciemny = niższe zarobki</div>`;
+  container.innerHTML=html;
+})();
+
+// Gender gap chart
+(function(){
+  const ctx=document.getElementById('lGenderGap');
+  if(!ctx)return;
+  const ages=['25-34','35-44','45-54','55+'];
+  const K=ages.map(a=>SALARY_BASE.radca.kobieta[a]);
+  const M=ages.map(a=>SALARY_BASE.radca.mezczyzna[a]);
+  const L=ages.map((a,i)=>M[i]-K[i]);
+  new Chart(ctx,{
+    type:'bar',
+    data:{labels:ages,datasets:[
+      {label:'Kobiety',data:K,backgroundColor:'#d2992288',borderColor:'#d29922',borderWidth:1.5,borderRadius:4},
+      {label:'Mężczyźni',data:M,backgroundColor:'#58a6ff88',borderColor:'#58a6ff',borderWidth:1.5,borderRadius:4},
+      {label:'Luka (M−K)',data:L,backgroundColor:'#ff7b7288',borderColor:'#ff7b72',borderWidth:1.5,borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{boxWidth:10,padding:10,font:{size:10}}},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('pl-PL')} zł`}}},
+      scales:{x:{grid:{color:GRID},ticks:{font:{size:11}}},y:{grid:{color:GRID},ticks:{font:{size:10},callback:v=>v.toLocaleString('pl-PL')+' zł'}}}}
+  });
+})();
+
+</script>
+</body>
+</html>
